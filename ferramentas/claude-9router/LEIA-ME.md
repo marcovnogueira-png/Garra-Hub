@@ -12,10 +12,7 @@ Os recursos da sua conta (conectores do claude.ai, sessões na nuvem, Cowork, Ar
 Precisa do Claude Code e do Node.js 18 ou mais novo.
 
 1. Baixe esta pasta (`ferramentas/claude-9router`) para o seu PC.
-2. Abra o PowerShell dentro dela e rode:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\instalar.ps1
-   ```
+2. Dê dois cliques em **`INSTALAR.bat`**. A janela fica aberta até você apertar uma tecla.
 3. Responda às perguntas: o endereço do 9router (o mesmo que você pôs em `ANTHROPIC_BASE_URL`), a chave, se houver, e o modelo padrão.
 4. Feche e abra o terminal. Rode `claude` e faça `/login` com sua conta, se ele pedir.
 
