@@ -21,7 +21,7 @@ $Aqui = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Oficial = Join-Path $HOME ".claude"
 $Alt = Join-Path $HOME ".claude-9router"
 
-Write-Host "`n=== Claude oficial + 9router (versao 3) ===`n" -ForegroundColor Cyan
+Write-Host "`n=== Claude oficial + 9router (versao 4) ===`n" -ForegroundColor Cyan
 
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
   throw "O comando 'claude' nao foi encontrado. Instale o Claude Code primeiro."
@@ -151,19 +151,22 @@ Write-Host "Comando 'claude9' adicionado em $PROFILE"
 
 # --- 4. Ponte no Claude oficial ----------------------------------------------
 $urlV1 = "$UrlRouter/v1"
-$envs = @("-e", "NINE_ROUTER_URL=$urlV1")
-if ($ChaveRouter) { $envs += @("-e", "NINE_ROUTER_KEY=$ChaveRouter") }
-if ($ModeloPadrao) { $envs += @("-e", "NINE_ROUTER_MODEL=$ModeloPadrao") }
+# Monta a linha de comando como texto e roda pelo cmd.exe.
+# (Chamando pelo PowerShell, o "--" some no caminho e o claude da erro.)
+$partes = @("claude", "mcp", "add", "ponte-9router", "--scope", "user")
+$partes += @("-e", "`"NINE_ROUTER_URL=$urlV1`"")
+if ($ChaveRouter) { $partes += @("-e", "`"NINE_ROUTER_KEY=$ChaveRouter`"") }
+if ($ModeloPadrao) { $partes += @("-e", "`"NINE_ROUTER_MODEL=$ModeloPadrao`"") }
+$partes += @("--", "node", "`"$ponte`"")
+$linha = $partes -join " "
 
 $salvo = $env:CLAUDE_CONFIG_DIR
 Remove-Item Env:CLAUDE_CONFIG_DIR -ErrorAction SilentlyContinue
-# Comandos externos: nao parar o script por causa de avisos em stderr
 $ErrorActionPreference = "Continue"
 # Remove uma ponte antiga, se existir (se nao existir, ignora o aviso)
-try { & claude mcp remove ponte-9router --scope user *> $null } catch { }
-$global:LASTEXITCODE = 0
-& claude mcp add ponte-9router --scope user @envs -- node $ponte
-$codigo = $LASTEXITCODE
+Start-Process -FilePath "cmd.exe" -ArgumentList "/d /c claude mcp remove ponte-9router --scope user >nul 2>&1" -NoNewWindow -Wait | Out-Null
+$proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/d /s /c `"$linha`"" -NoNewWindow -Wait -PassThru
+$codigo = $proc.ExitCode
 $ErrorActionPreference = "Stop"
 if ($salvo) { $env:CLAUDE_CONFIG_DIR = $salvo }
 if ($codigo -ne 0) { throw "Nao consegui instalar a ponte (codigo $codigo). Mande um print desta janela." }
