@@ -57,14 +57,36 @@ if ($globalUrl) {
   }
 }
 $settingsOficial = Join-Path $Oficial "settings.json"
+$settingsAlt = Join-Path $Alt "settings.json"
+New-Item -ItemType Directory -Force -Path $Oficial | Out-Null
+New-Item -ItemType Directory -Force -Path $Alt | Out-Null
+
+# Copia o settings.json para o claude9 ANTES de limpar o oficial
+if ((Test-Path $settingsOficial) -and -not (Test-Path $settingsAlt)) {
+  Copy-Item $settingsOficial $settingsAlt
+  Write-Host "Copiado: settings.json (plugins ativados e permissoes)"
+}
+
 if ((Test-Path $settingsOficial) -and ((Get-Content $settingsOficial -Raw) -match "ANTHROPIC_BASE_URL")) {
-  Write-Host "`nATENCAO: $settingsOficial tem ANTHROPIC_BASE_URL no bloco 'env'." -ForegroundColor Yellow
-  Write-Host "Apague essa linha (e ANTHROPIC_AUTH_TOKEN, se houver) para o 'claude' oficial voltar a usar sua conta."
+  Write-Host "`nATENCAO: $settingsOficial manda o 'claude' oficial pelo 9router (ANTHROPIC_BASE_URL)." -ForegroundColor Yellow
+  Write-Host "Assim ele perde os recursos da sua conta. O 'claude9' continua usando o 9router normalmente."
+  $r = Read-Host "Tirar o 9router do 'claude' oficial? Uma copia de seguranca sera salva (s/n)"
+  if ($r -eq "s") {
+    $backup = "$settingsOficial.antes-9router.bak"
+    Copy-Item $settingsOficial $backup -Force
+    $json = Get-Content $settingsOficial -Raw | ConvertFrom-Json
+    if ($json.env) {
+      foreach ($n in @("ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")) {
+        if ($json.env.PSObject.Properties[$n]) { $json.env.PSObject.Properties.Remove($n) }
+      }
+    }
+    $texto = $json | ConvertTo-Json -Depth 50
+    [IO.File]::WriteAllText($settingsOficial, $texto, (New-Object Text.UTF8Encoding $false))
+    Write-Host "Feito. Copia de seguranca em: $backup" -ForegroundColor Green
+  }
 }
 
 # --- 2. Configuracao separada para o claude9, compartilhando o que importa ---
-New-Item -ItemType Directory -Force -Path $Oficial | Out-Null
-New-Item -ItemType Directory -Force -Path $Alt | Out-Null
 
 foreach ($pasta in @("skills", "agents", "commands", "plugins")) {
   $origem = Join-Path $Oficial $pasta
@@ -88,12 +110,6 @@ if (-not (Test-Path $memOficial)) {
 if (-not (Test-Path $memAlt)) {
   New-Item -ItemType HardLink -Path $memAlt -Target $memOficial | Out-Null
   Write-Host "Compartilhado: CLAUDE.md global"
-}
-
-$settingsAlt = Join-Path $Alt "settings.json"
-if ((Test-Path $settingsOficial) -and -not (Test-Path $settingsAlt)) {
-  Copy-Item $settingsOficial $settingsAlt
-  Write-Host "Copiado: settings.json (plugins ativados e permissoes)"
 }
 
 # Copia a ponte para um lugar fixo
@@ -141,10 +157,17 @@ if ($ModeloPadrao) { $envs += @("-e", "NINE_ROUTER_MODEL=$ModeloPadrao") }
 
 $salvo = $env:CLAUDE_CONFIG_DIR
 Remove-Item Env:CLAUDE_CONFIG_DIR -ErrorAction SilentlyContinue
-& claude mcp remove ponte-9router --scope user 2>$null | Out-Null
+# Comandos externos: nao parar o script por causa de avisos em stderr
+$ErrorActionPreference = "Continue"
+# Remove uma ponte antiga, se existir (se nao existir, ignora o aviso)
+try { & claude mcp remove ponte-9router --scope user *> $null } catch { }
+$global:LASTEXITCODE = 0
 & claude mcp add ponte-9router --scope user @envs -- node $ponte
+$codigo = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
 if ($salvo) { $env:CLAUDE_CONFIG_DIR = $salvo }
-Write-Host "Ponte 'ponte-9router' instalada no Claude oficial."
+if ($codigo -ne 0) { throw "Nao consegui instalar a ponte (codigo $codigo). Mande um print desta janela." }
+Write-Host "Ponte 'ponte-9router' instalada no Claude oficial." -ForegroundColor Green
 
 Write-Host "`n=== Pronto ===" -ForegroundColor Green
 Write-Host "Feche e abra o terminal. Depois:"
