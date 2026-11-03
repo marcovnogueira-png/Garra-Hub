@@ -21,7 +21,7 @@ $Aqui = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Oficial = Join-Path $HOME ".claude"
 $Alt = Join-Path $HOME ".claude-9router"
 
-Write-Host "`n=== Claude oficial + 9router ===`n" -ForegroundColor Cyan
+Write-Host "`n=== Claude oficial + 9router (versao 3) ===`n" -ForegroundColor Cyan
 
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
   throw "O comando 'claude' nao foi encontrado. Instale o Claude Code primeiro."
